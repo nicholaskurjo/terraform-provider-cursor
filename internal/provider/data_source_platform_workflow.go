@@ -655,7 +655,7 @@ func (d *platformWorkflowDataSource) Read(ctx context.Context, req datasource.Re
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if d.client == nil {
+	if d.client == nil || d.client.automations == nil {
 		resp.Diagnostics.AddError("Provider not configured", "Async platform client is unavailable.")
 		return
 	}

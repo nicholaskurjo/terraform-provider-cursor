@@ -8,6 +8,7 @@ terraform {
 }
 
 provider "cursor" {
-  # Or set the CURSOR_TOKEN environment variable.
-  token = var.cursor_token
+	# Each value can also be supplied through its CURSOR_* environment variable.
+	token        = var.cursor_token
+	team_api_key = var.cursor_team_api_key
 }
