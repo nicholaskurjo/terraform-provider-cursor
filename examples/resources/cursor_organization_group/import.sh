@@ -1,0 +1,1 @@
+terraform import cursor_organization_group.contractors g_abc123

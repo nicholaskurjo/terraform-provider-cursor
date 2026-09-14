@@ -1,0 +1,1 @@
+terraform import cursor_organization_group_membership.engineering_developer g_abc123/user_def456

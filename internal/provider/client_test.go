@@ -156,3 +156,29 @@ func TestFormatAuthHeader(t *testing.T) {
 		}
 	}
 }
+
+func TestNewAPIClientSupportsIndependentCredentials(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		token           string
+		teamKey         string
+		organizationKey string
+	}{
+		{name: "automations", token: "session_test"},
+		{name: "team_admin", teamKey: "key_team"},
+		{name: "organization_admin", organizationKey: "key_org"},
+		{name: "combined", token: "session_test", teamKey: "key_team", organizationKey: "key_org"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Admin keys must never go through the user-token exchange endpoint.
+			// An invalid hostname makes an accidental exchange fail this test.
+			client, err := newAPIClient("https://should-not-be-called.invalid", tc.token, "https://api.cursor.com", tc.teamKey, tc.organizationKey, "test")
+			if err != nil {
+				t.Fatalf("newAPIClient: %v", err)
+			}
+			if (client.automations != nil) != (tc.token != "") || (client.teamAdmin != nil) != (tc.teamKey != "") || (client.organizationAdmin != nil) != (tc.organizationKey != "") {
+				t.Fatalf("unexpected configured clients: %+v", client)
+			}
+		})
+	}
+}

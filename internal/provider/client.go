@@ -17,39 +17,50 @@ import (
 const userAgentPrefix = "terraform-provider-cursor/"
 
 type apiClient struct {
-	automations v1connect.AutomationsServiceClient
+	automations       v1connect.AutomationsServiceClient
+	teamAdmin         *restClient
+	organizationAdmin *restClient
 }
 
-func newAPIClient(endpoint string, token string, version string) (*apiClient, error) {
-	if endpoint == "" {
-		return nil, fmt.Errorf("endpoint is required")
-	}
+func newAPIClient(endpoint string, token string, adminEndpoint string, teamAPIKey string, organizationAPIKey string, version string) (*apiClient, error) {
 	httpClient := &http.Client{Timeout: 30 * time.Second}
+	client := &apiClient{}
 
-	// If the token is a raw API key, exchange it for a session token before
-	// building the Connect client.
-	bearerToken, err := resolveToken(httpClient, endpoint, token)
-	if err != nil {
-		return nil, fmt.Errorf("failed to exchange API key for session token: %w", err)
+	if strings.TrimSpace(token) != "" {
+		if endpoint == "" {
+			return nil, fmt.Errorf("endpoint is required when token is configured")
+		}
+
+		// If the token is a raw API key, exchange it for a session token before
+		// building the Connect client.
+		bearerToken, err := resolveToken(httpClient, endpoint, token)
+		if err != nil {
+			return nil, fmt.Errorf("failed to exchange API key for session token: %w", err)
+		}
+
+		interceptors := []connect.Interceptor{
+			userAgentInterceptor(version),
+		}
+		authHeader := formatAuthHeader(bearerToken)
+		if authHeader != "" {
+			interceptors = append(interceptors, authInterceptor(authHeader))
+		}
+
+		client.automations = v1connect.NewAutomationsServiceClient(
+			httpClient,
+			endpoint,
+			connect.WithInterceptors(interceptors...),
+		)
 	}
 
-	interceptors := []connect.Interceptor{
-		userAgentInterceptor(version),
+	if strings.TrimSpace(teamAPIKey) != "" {
+		client.teamAdmin = newRESTClient(httpClient, adminEndpoint, teamAPIKey, version)
 	}
-	authHeader := formatAuthHeader(bearerToken)
-	if authHeader != "" {
-		interceptors = append(interceptors, authInterceptor(authHeader))
+	if strings.TrimSpace(organizationAPIKey) != "" {
+		client.organizationAdmin = newRESTClient(httpClient, adminEndpoint, organizationAPIKey, version)
 	}
 
-	client := v1connect.NewAutomationsServiceClient(
-		httpClient,
-		endpoint,
-		connect.WithInterceptors(interceptors...),
-	)
-
-	return &apiClient{
-		automations: client,
-	}, nil
+	return client, nil
 }
 
 // isAPIKey returns true when the token looks like a raw Cursor user API key
