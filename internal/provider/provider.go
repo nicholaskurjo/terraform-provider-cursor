@@ -14,10 +14,13 @@ import (
 )
 
 const (
-	envToken    = "CURSOR_TOKEN"
-	envEndpoint = "CURSOR_ENDPOINT"
+	envToken           = "CURSOR_TOKEN"
+	envEndpoint        = "CURSOR_ENDPOINT"
+	envTeamAPIKey      = "CURSOR_TEAM_API_KEY"
+	envTeamAPIEndpoint = "CURSOR_TEAM_API_ENDPOINT"
 
-	defaultEndpoint = "https://api2.cursor.sh"
+	defaultEndpoint        = "https://api2.cursor.sh"
+	defaultTeamAPIEndpoint = "https://api.cursor.com"
 )
 
 type cursorProvider struct {
@@ -25,8 +28,10 @@ type cursorProvider struct {
 }
 
 type cursorProviderModel struct {
-	Token    types.String `tfsdk:"token"`
-	Endpoint types.String `tfsdk:"endpoint"`
+	Token           types.String `tfsdk:"token"`
+	Endpoint        types.String `tfsdk:"endpoint"`
+	TeamAPIKey      types.String `tfsdk:"team_api_key"`
+	TeamAPIEndpoint types.String `tfsdk:"team_api_endpoint"`
 }
 
 func New(version string) func() provider.Provider {
@@ -42,7 +47,7 @@ func (p *cursorProvider) Metadata(_ context.Context, _ provider.MetadataRequest,
 
 func (p *cursorProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manage Cursor Automations. Talks to the Cursor Automations API over Connect RPC.",
+		Description: "Manage Cursor Automations and Enterprise team administration settings.",
 		Attributes: map[string]schema.Attribute{
 			"token": schema.StringAttribute{
 				Optional:    true,
@@ -52,6 +57,15 @@ func (p *cursorProvider) Schema(_ context.Context, _ provider.SchemaRequest, res
 			"endpoint": schema.StringAttribute{
 				Optional:    true,
 				Description: fmt.Sprintf("Cursor API base URL. Defaults to %s. Can also be set via CURSOR_ENDPOINT.", defaultEndpoint),
+			},
+			"team_api_key": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Team Admin API key used for per-user spend limits. Can also be set via CURSOR_TEAM_API_KEY.",
+			},
+			"team_api_endpoint": schema.StringAttribute{
+				Optional:    true,
+				Description: fmt.Sprintf("Cursor Team Admin API base URL. Defaults to %s. Can also be set via CURSOR_TEAM_API_ENDPOINT.", defaultTeamAPIEndpoint),
 			},
 		},
 	}
@@ -65,10 +79,11 @@ func (p *cursorProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	}
 
 	token := getStringValue(config.Token, envToken)
-	if token == "" {
+	teamAPIKey := getStringValue(config.TeamAPIKey, envTeamAPIKey)
+	if token == "" && teamAPIKey == "" {
 		resp.Diagnostics.AddError(
-			"Missing Cursor API token",
-			fmt.Sprintf("Set the provider \"token\" attribute or the %s environment variable.", envToken),
+			"Missing Cursor API credentials",
+			fmt.Sprintf("Set at least one of token or team_api_key (or %s or %s).", envToken, envTeamAPIKey),
 		)
 		return
 	}
@@ -78,8 +93,13 @@ func (p *cursorProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		endpoint = defaultEndpoint
 	}
 	endpoint = strings.TrimRight(endpoint, "/")
+	teamAPIEndpoint := getStringValue(config.TeamAPIEndpoint, envTeamAPIEndpoint)
+	if teamAPIEndpoint == "" {
+		teamAPIEndpoint = defaultTeamAPIEndpoint
+	}
+	teamAPIEndpoint = strings.TrimRight(teamAPIEndpoint, "/")
 
-	client, err := newAPIClient(endpoint, token, p.version)
+	client, err := newAPIClient(endpoint, token, teamAPIEndpoint, teamAPIKey, p.version)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to configure Cursor client", err.Error())
 		return
@@ -92,6 +112,7 @@ func (p *cursorProvider) Configure(ctx context.Context, req provider.ConfigureRe
 func (p *cursorProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewPlatformWorkflowResource,
+		NewUserSpendLimitResource,
 	}
 }
 

@@ -1082,7 +1082,7 @@ func (r *platformWorkflowResource) Create(ctx context.Context, req resource.Crea
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if r.client == nil {
+	if r.client == nil || r.client.automations == nil {
 		resp.Diagnostics.AddError("Provider not configured", "Async platform client is unavailable.")
 		return
 	}
@@ -1191,7 +1191,7 @@ func (r *platformWorkflowResource) Read(ctx context.Context, req resource.ReadRe
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if r.client == nil {
+	if r.client == nil || r.client.automations == nil {
 		resp.Diagnostics.AddError("Provider not configured", "Async platform client is unavailable.")
 		return
 	}
@@ -1241,7 +1241,7 @@ func (r *platformWorkflowResource) Update(ctx context.Context, req resource.Upda
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if r.client == nil {
+	if r.client == nil || r.client.automations == nil {
 		resp.Diagnostics.AddError("Provider not configured", "Async platform client is unavailable.")
 		return
 	}
@@ -1313,7 +1313,7 @@ func (r *platformWorkflowResource) Delete(ctx context.Context, req resource.Dele
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if r.client == nil {
+	if r.client == nil || r.client.automations == nil {
 		resp.Diagnostics.AddError("Provider not configured", "Async platform client is unavailable.")
 		return
 	}
